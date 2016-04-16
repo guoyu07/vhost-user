@@ -53,6 +53,7 @@ struct virtio_mem_region {
 	u64 guest_address;
 	u64 user_address;
 	u64 address_offset;
+	u64 size;
 };
 struct virtio_mem {
 	u32 nregions;

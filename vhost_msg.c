@@ -119,11 +119,12 @@ static int vhost_user_set_mem_table(struct virtio_dev *dev, struct vhost_msg *ms
 	for (i = 0; i < memory->nregions; i++) {
 		regions[i].guest_address = memory->regions[i].guest_address;
 		regions[i].user_address = memory->regions[i].user_address;
+		regions[i].size = memory->regions[i].size;
 		size = memory->regions[i].size + memory->regions[i].mmap_offset;
 		mmap_addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, msg->fds[i], 0);
 		if (mmap_addr == MAP_FAILED)
 			return -1;
-		regions[i].address_offset = (u64)mmap_addr - memory->regions[i].guest_address;
+		regions[i].address_offset = (u64)mmap_addr + memory->regions[i].mmap_offset - memory->regions[i].guest_address;
 	}
 	return 0;
 }
@@ -185,10 +186,10 @@ int vhost_msg_handler(int connfd, struct vhost_ctx *ctx)
 		case VHOST_USER_SET_VRING_ADDR:
 			vhost_log("set vring addr\n");
 			vq = &dev->vq[msg.addr.index];
-			vq->desc = qva_to_va(msg.addr.desc);
-			vq->used = qva_to_va(msg.addr.used);
-			vq->avail = qva_to_va(msg.addr.avail);
-			vq->log = qva_to_va(msg.addr.log);
+			vq->desc = qva_to_va(dev, msg.addr.desc);
+			vq->used = qva_to_va(dev, msg.addr.used);
+			vq->avail = qva_to_va(dev, msg.addr.avail);
+			vq->log = qva_to_va(dev, msg.addr.log);
 			break;
 		case VHOST_USER_SET_VRING_BASE:
 			dev->vq[msg.state.index].last_used_idx = msg.state.num;
