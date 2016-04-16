@@ -3,11 +3,6 @@
 
 #include "types.h"
 
-#define VIRTIO_NET_F_CSUM	(0)
-#define VIRTIO_NET_F_TSO4	(11)
-#define VIRTIO_NET_F_MRG_RXBUF	(15)
-#define VIRTIO_NET_F_MQ		(22)
-
 #define MAX_QUEUE_SIZE	(0xffff)
 #define MAX_QUEUE_PAIR	(1024)
 #define VIRTIO_MAX_REGION	(8)

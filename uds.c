@@ -47,11 +47,8 @@ int uds_connect(const char *path)
 int uds_accept(int fd)
 {
 	int rc;
-	int len;
-	struct sockaddr_un un;
 
-	len = sizeof(struct sockaddr_un);
-	rc = accept(fd, (struct sockaddr *)&un, &len);
+	rc = accept(fd, 0, 0);
 	if (rc < 0) {
 		return -1;
 	}
