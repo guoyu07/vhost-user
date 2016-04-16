@@ -1,6 +1,8 @@
 #ifndef _VIRTIO_H_
 #define _VIRTIO_H_
 
+#include "types.h"
+
 #define VIRTIO_NET_F_CSUM	(0)
 #define VIRTIO_NET_F_TSO4	(11)
 #define VIRTIO_NET_F_MRG_RXBUF	(15)
@@ -9,6 +11,7 @@
 #define MAX_QUEUE_SIZE	(0xffff)
 #define MAX_QUEUE_PAIR	(1024)
 #define VIRTIO_MAX_REGION	(8)
+#define VIRTIO_INVALID_EVENTFD	(-1)
 
 struct virtq_desc {
 	/* guest physical address */
@@ -43,6 +46,12 @@ struct virtqueue {
 	struct virtq_desc *desc;
 	struct virtq_avail *avail;
 	struct virtq_used *used;
+	u8 *log;
+
+	u16 last_used_idx;
+
+	int kickfd;
+	int callfd;
 };
 
 struct virtio_mem_region {

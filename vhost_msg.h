@@ -1,6 +1,33 @@
 #ifndef _VHOST_MSG_H_
 #define _VHOST_MSG_H_
 
+#include "types.h"
+#include "vhost.h"
+
+enum {
+	VHOST_USER_NONE = 0,
+	VHOST_USER_GET_FEATURES = 1,
+	VHOST_USER_SET_FEATURES = 2,
+	VHOST_USER_SET_OWNER = 3,
+	VHOST_USER_RESET_OWNER = 4,
+	VHOST_USER_SET_MEM_TABLE = 5,
+	VHOST_USER_SET_LOG_BASE = 6,
+	VHOST_USER_SET_LOG_FD = 7,
+	VHOST_USER_SET_VRING_NUM = 8,
+	VHOST_USER_SET_VRING_ADDR = 9,
+	VHOST_USER_SET_VRING_BASE = 10,
+	VHOST_USER_GET_VRING_BASE = 11,
+	VHOST_USER_SET_VRING_KICK = 12,
+	VHOST_USER_SET_VRING_CALL = 13,
+	VHOST_USER_SET_VRING_ERR = 14,
+	VHOST_USER_GET_PROTOCOL_FEATURES = 15,
+	VHOST_USER_SET_PROTOCOL_FEATURES = 16,
+	VHOST_USER_GET_QUEUE_NUM = 17,
+	VHOST_USER_SET_VRING_ENABLE = 18,
+	VHOST_USER_SEND_RARP = 19,
+	VHOST_USER_MAX
+};
+
 struct vhost_vring_state {
 	u32 index;
 	u32 num;
@@ -41,6 +68,14 @@ struct vhost_msg {
 		struct vhost_user_log log;
 	};
 	int fds[VIRTIO_MAX_REGION];
+}__attribute__((packed));
+
+struct vhost_ctx {
+	int fd;
+	int (*handler) (int);
+	struct virtio_dev *dev;
 };
+
+int vhost_msg_handler(int connfd, struct vhost_ctx *ctx);
 
 #endif

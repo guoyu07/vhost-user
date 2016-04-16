@@ -1,10 +1,66 @@
+#include <stdlib.h>
+#include <assert.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <sys/mman.h>
+
 #include "vhost.h"
 #include "vhost_msg.h"
+
+extern int errno;
+
+#define VHOST_USER_VRING_IDX_MASK	(0xff)
+#define VHOST_USER_VRING_NOFD_MASK	(0x100) 
+
+static int vhost_read_msg(int fd, struct vhost_msg *msg)
+{
+	int hdrsz;
+	int rc;
+
+	hdrsz = offsetof(struct vhost_msg, num);
+redo:
+	rc = read(fd, msg, hdrsz);
+	if (rc < 0) {
+		if (errno == EINTR)
+			goto redo;
+	}
+	if (rc != hdrsz) {
+		perror("read");
+		return -1;
+	}
+
+	if (msg->len) {
+		rc = read(fd, &msg->num, msg->len);
+		if (rc == msg->len)
+			return 0;
+		if (rc < 0) {
+			return -1;
+		}
+		if (rc != msg->len) {
+			perror("read");
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static int vhost_reply_msg(int fd, struct vhost_msg *msg)
+{
+	int rc;
+
+	rc = write(fd, msg, sizeof(msg->len));
+	if (rc != msg->len)
+		return -1;
+	return 0;
+}
 
 static int vhost_user_set_mem_table(struct virtio_dev *dev, struct vhost_msg *msg)
 {
 	int i;
+	unsigned size;
 	void *mmap_addr;
+	struct virtio_mem_region *regions;
 	struct vhost_user_mem *memory = &msg->memory;
 
 	dev->mem = (struct virtio_mem *)malloc(sizeof(struct virtio_mem));
@@ -15,16 +71,19 @@ static int vhost_user_set_mem_table(struct virtio_dev *dev, struct vhost_msg *ms
 		regions[i].guest_address = memory->regions[i].guest_address;
 		regions[i].user_address = memory->regions[i].user_address;
 		size = memory->regions[i].size + memory->regions[i].mmap_offset;
-		mmap_addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MMAP_SHARED, msg->fds[i]);
+		mmap_addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, msg->fds[i], 0);
 		if (mmap_addr == MAP_FAILED)
 			return -1;
-		regions[i].addr_offset = mmap_addr - memory->regions[i].guest_address;
+		regions[i].address_offset = (u64)mmap_addr - memory->regions[i].guest_address;
 	}
 	return 0;
 }
 
-static int vhost_msg_handler(int connfd, struct vhost_ctx *ctx)
+int vhost_msg_handler(int connfd, struct vhost_ctx *ctx)
 {
+	int fd;
+	u16 index;
+	struct virtqueue *vq;
 	struct vhost_msg msg;
 	struct virtio_dev *dev;
 
@@ -33,13 +92,13 @@ static int vhost_msg_handler(int connfd, struct vhost_ctx *ctx)
 		return -1;
 	}
 
-	dev = vhost_ctx_get_dev(ctx);
+	dev = ctx->dev;
 
 	switch (msg.request) {
 		case VHOST_USER_GET_FEATURES:
 			vhost_log("get features\n");
 			msg.len = sizeof(u64);
-			payload.num = vhost_supported_features;
+			msg.num = vhost_supported_features;
 			vhost_reply_msg(connfd, &msg);
 			break;
 		case VHOST_USER_SET_FEATURES:
