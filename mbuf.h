@@ -23,7 +23,8 @@ static inline void vhost_dump_mbuf(struct mbuf *m)
 	vhost_log("mbuf: len %u\n", m->len);	
 	for (i = 0; i < ROUNDDN(m->len, 4); i++) {
 		vhost_log("%02x %02x %02x %02x\n",
-				m->data[i], m->data[i+1], m->data[i+2], m->data[i+3]);
+				m->data[i], m->data[i+1],
+				m->data[i+2], m->data[i+3]);
 	}
 	for (; i < m->len; i++) {
 		vhost_log("%02x ", m->data[i]);
@@ -44,6 +45,7 @@ static inline struct mbuf *vhost_new_mbuf(void)
 		free(m);
 		return 0;
 	}
+	return m;
 }
 
 static inline void vhost_free_mbuf(struct mbuf *m)
