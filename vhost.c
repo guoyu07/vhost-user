@@ -7,6 +7,8 @@
 #include "vhost.h"
 #include "vhost_msg.h"
 
+int vhost_debug;
+
 /* The feature bitmap for virtio net */
 #define VIRTIO_NET_F_CSUM       0       /* Host handles pkts w/ partial csum */
 #define VIRTIO_NET_F_GUEST_CSUM 1       /* Guest handles pkts w/ partial csum */
@@ -36,10 +38,12 @@
 #define VHOST_SUPPORTS_MQ      (1ULL << VIRTIO_NET_F_MQ)
 
 #define VHOST_SUPPORTED_FEATURES \
-		((1ULL << VIRTIO_NET_F_CTRL_VQ) | \
-		(1ULL << VIRTIO_NET_F_CTRL_RX) | \
-		(1ULL << VIRTIO_F_VERSION_1)   | \
-		(1ULL << VIRTIO_NET_F_GUEST_CSUM))
+		((1ULL << VIRTIO_F_VERSION_1) | \
+		 (1ULL << VIRTIO_NET_F_GUEST_CSUM) | \
+		 (1ULL << VIRTIO_NET_F_GUEST_TSO4) | \
+		 (1ULL << VIRTIO_NET_F_GUEST_TSO6))
+
+
 
 #define VHOST_SUPPORTED_FEATURES2 ((1ULL << VIRTIO_NET_F_MRG_RXBUF) | \
 		(1ULL << VIRTIO_NET_F_CTRL_VQ) | \
@@ -58,9 +62,9 @@
 
 u64 vhost_supported_features = (VHOST_SUPPORTED_FEATURES);
 
-static int n_vhost_server;
-static struct vhost_ctx vhost_servers[16];
-static struct vhost_ctx *vhost_get_ctx(int fd)
+int n_vhost_server;
+struct vhost_ctx vhost_servers[16];
+struct vhost_ctx *vhost_get_ctx(int fd)
 {
 	int i;
 	for (i = 0; i < n_vhost_server; i++) {
@@ -123,14 +127,14 @@ void vhost_user_start(const char *path)
 			printf("strange\n");
 			continue;
 		}
-		vhost_log("someone comes\n");
+//		vhost_log("someone comes\n");
 		for (i = 0; i < n_vhost_server; i++) {
 			ctx = &vhost_servers[i];
 			if (FD_ISSET(ctx->fd, &rfds)) {
 				rc = ctx->handler(ctx->fd);
 				if (rc > 0) {
 					printf("new conn\n");
-					new_ctx = vhost_get_ctx(fd);
+					new_ctx = vhost_get_ctx(rc);
 					if (!new_ctx) {
 						printf("server busy\n");
 						continue;
@@ -143,6 +147,8 @@ void vhost_user_start(const char *path)
 				} else if (rc < 0) {
 					printf("handler failed, close conn\n");
 					//close(ctx->fd);
+					if (ctx->dev)
+						virtio_dump_dev(ctx->dev);
 					exit(-1);
 				}
 				FD_SET(ctx->fd, &rfds);

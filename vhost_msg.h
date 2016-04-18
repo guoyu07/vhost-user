@@ -70,11 +70,6 @@ struct vhost_msg {
 	int fds[VIRTIO_MAX_REGION];
 }__attribute__((packed));
 
-struct vhost_ctx {
-	int fd;
-	int (*handler) (int);
-	struct virtio_dev *dev;
-};
 
 int vhost_msg_handler(int connfd, struct vhost_ctx *ctx);
 

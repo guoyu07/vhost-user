@@ -8,7 +8,7 @@ all: app
 	gcc -g -c $<
 
 app: $(OBJS) $(HDRS)
-	gcc -g -o $@ $^
+	gcc -g -o $@ $^ -lpthread
 
 clean:
 	rm -f *.o app

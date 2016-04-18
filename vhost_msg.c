@@ -18,7 +18,7 @@ extern int errno;
 
 static int vhost_read_msg(int fd, struct vhost_msg *msg)
 {
-	int hdrsz;
+	size_t hdrsz;
 	int rc;
 	struct iovec iov;
 	struct msghdr msgh;
@@ -27,6 +27,7 @@ static int vhost_read_msg(int fd, struct vhost_msg *msg)
 	struct cmsghdr *cmsg;
 
 	hdrsz = offsetof(struct vhost_msg, num);
+
 	memset(&msgh, 0, sizeof(msgh));
 	iov.iov_base = msg;
 	iov.iov_len = hdrsz;
@@ -70,7 +71,6 @@ static int vhost_read_msg(int fd, struct vhost_msg *msg)
 	return 0;
 }
 
-/* FIXME: set reply flag */
 static int vhost_reply_msg(int fd, struct vhost_msg *msg)
 {
 	int rc;
@@ -104,10 +104,13 @@ static int vhost_new_device(struct vhost_ctx *ctx)
 	memset(ctx->dev, 0, sizeof(struct virtio_dev));
 }
 
+/* y is 2^n */
+#define ROUNDUP(x, y) (((x)+(y)-1) & (~((y)-1)))
+
 static int vhost_user_set_mem_table(struct virtio_dev *dev, struct vhost_msg *msg)
 {
 	int i;
-	unsigned size;
+	size_t size;
 	void *mmap_addr;
 	struct virtio_mem_region *regions;
 	struct vhost_user_mem *memory = &msg->memory;
@@ -120,10 +123,18 @@ static int vhost_user_set_mem_table(struct virtio_dev *dev, struct vhost_msg *ms
 		regions[i].guest_address = memory->regions[i].guest_address;
 		regions[i].user_address = memory->regions[i].user_address;
 		regions[i].size = memory->regions[i].size;
+
 		size = memory->regions[i].size + memory->regions[i].mmap_offset;
+		/* size aligned at 2MB */
+		size = ROUNDUP(size, 2<<20);
+		vhost_log("memfd %d orig offset %lx mmapped size %lx\n",
+				msg->fds[i], memory->regions[i].mmap_offset, size);
 		mmap_addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, msg->fds[i], 0);
-		if (mmap_addr == MAP_FAILED)
+		if (mmap_addr == MAP_FAILED) {
+			perror("mmap");
+			vhost_log("mmap failed\n");
 			return -1;
+		}
 		regions[i].address_offset = (u64)mmap_addr + memory->regions[i].mmap_offset - memory->regions[i].guest_address;
 	}
 	return 0;
@@ -152,8 +163,8 @@ int vhost_msg_handler(int connfd, struct vhost_ctx *ctx)
 			vhost_reply_msg(connfd, &msg);
 			break;
 		case VHOST_USER_SET_FEATURES:
-			vhost_log("set features\n");
 			vhost_supported_features = msg.num;
+			vhost_log("set features:%lx\n", vhost_supported_features);
 			break;
 		case VHOST_USER_GET_PROTOCOL_FEATURES:
 			vhost_log("not implemented\n");
@@ -180,20 +191,27 @@ int vhost_msg_handler(int connfd, struct vhost_ctx *ctx)
 			vhost_log("not implemented\n");
 			break;
 		case VHOST_USER_SET_VRING_NUM:
-			vhost_log("set vring num\n");
 			dev->vq[msg.state.index].num = msg.state.num;
+			vhost_log("set vring num: %d\n", msg.state.num);
 			break;
 		case VHOST_USER_SET_VRING_ADDR:
-			vhost_log("set vring addr\n");
 			vq = &dev->vq[msg.addr.index];
 			vq->desc = qva_to_va(dev, msg.addr.desc);
 			vq->used = qva_to_va(dev, msg.addr.used);
 			vq->avail = qva_to_va(dev, msg.addr.avail);
+			/* FIXME */
 			vq->log = qva_to_va(dev, msg.addr.log);
+			vhost_log("vq %d orig vring addr: %lx %lx %lx %lx\n",
+					msg.addr.index,
+					msg.addr.desc, msg.addr.used,
+					msg.addr.avail, msg.addr.log);
+			vhost_log("vq %d set vring addr: %p %p %p %p\n",
+					msg.addr.index,
+					vq->desc, vq->used, vq->avail, vq->log);
 			break;
 		case VHOST_USER_SET_VRING_BASE:
 			dev->vq[msg.state.index].last_used_idx = msg.state.num;
-			vhost_log("set vring base\n");
+			vhost_log("set vring base: index %d base %d\n", msg.state.index, msg.state.num);
 			break;
 		case VHOST_USER_GET_VRING_BASE:
 			/* qemu stops */
@@ -208,8 +226,12 @@ int vhost_msg_handler(int connfd, struct vhost_ctx *ctx)
 				fd = VIRTIO_INVALID_EVENTFD;
 			else
 				fd = msg.fds[0];
+			if (dev->vq[index].kickfd > 0) {
+				vhost_dbg("close kickfd %d\n", dev->vq[index].kickfd);
+				close(dev->vq[index].kickfd);
+			}
 			dev->vq[index].kickfd = fd;
-			vhost_log("set vring kick\n");
+			vhost_log("set vring kick: index %d kick %d\n", index, fd);
 			break;
 		case VHOST_USER_SET_VRING_CALL:
 			index = msg.num & VHOST_USER_VRING_IDX_MASK;
@@ -217,8 +239,12 @@ int vhost_msg_handler(int connfd, struct vhost_ctx *ctx)
 				fd = VIRTIO_INVALID_EVENTFD;
 			else
 				fd = msg.fds[0];
+			if (dev->vq[index].callfd > 0) {
+				vhost_dbg("close callfd %d\n", dev->vq[index].callfd);
+				close(dev->vq[index].callfd);
+			}
 			dev->vq[index].callfd = fd;
-			vhost_log("set vring call\n");
+			vhost_log("set vring call: index %d call %d\n", index, fd);
 			break;
 		case VHOST_USER_SET_VRING_ERR:
 			vhost_log("set vring err\n");
