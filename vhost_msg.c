@@ -90,7 +90,7 @@ static int vhost_reply_msg(int fd, struct vhost_msg *msg)
 	rc = write(fd, msg, count);
 	if (rc != count) {
 		perror("write");
-		fprintf(stderr, "reply failed\n");
+		vhost_log("reply failed\n");
 		return -1;
 	}
 	return 0;
@@ -98,7 +98,7 @@ static int vhost_reply_msg(int fd, struct vhost_msg *msg)
 
 static int vhost_new_device(struct vhost_ctx *ctx)
 {
-	printf("new device\n");
+	vhost_log("new device\n");
 	ctx->dev = (struct virtio_dev *)malloc(sizeof(struct virtio_dev));
 	assert(ctx->dev);
 	memset(ctx->dev, 0, sizeof(struct virtio_dev));

@@ -124,7 +124,7 @@ void vhost_user_start(const char *path)
 			continue;
 		}
 		if (rc == 0) {
-			printf("strange\n");
+			vhost_log("strange\n");
 			continue;
 		}
 //		vhost_log("someone comes\n");
@@ -133,10 +133,10 @@ void vhost_user_start(const char *path)
 			if (FD_ISSET(ctx->fd, &rfds)) {
 				rc = ctx->handler(ctx->fd);
 				if (rc > 0) {
-					printf("new conn\n");
+					vhost_log("new conn\n");
 					new_ctx = vhost_get_ctx(rc);
 					if (!new_ctx) {
-						printf("server busy\n");
+						vhost_log("server busy\n");
 						continue;
 					}
 					new_ctx->fd = rc;
@@ -145,7 +145,7 @@ void vhost_user_start(const char *path)
 					if (rc >= nfds)
 						nfds = rc + 1;
 				} else if (rc < 0) {
-					printf("handler failed, close conn\n");
+					vhost_log("handler failed, close conn\n");
 					//close(ctx->fd);
 					if (ctx->dev)
 						virtio_dump_dev(ctx->dev);
