@@ -9,7 +9,7 @@
 
 struct mbuf {
 	u32 len;
-	char *data;
+	u8 *data;
 	struct virtio_net_hdr hdr;
 };
 
@@ -20,16 +20,17 @@ static inline void vhost_dump_mbuf(struct mbuf *m)
 {
 	int i = 0;
 
-	vhost_log("mbuf: len %u\n", m->len);	
-	for (i = 0; i < ROUNDDN(m->len, 4); i++) {
-		vhost_log("%02x %02x %02x %02x\n",
+	printf("0x%08x\n", m->len);
+	for (i = 0; i < ROUNDDN(m->len, 4); i+=4) {
+		printf("%02x %02x %02x %02x\n",
 				m->data[i], m->data[i+1],
 				m->data[i+2], m->data[i+3]);
 	}
 	for (; i < m->len; i++) {
-		vhost_log("%02x ", m->data[i]);
+		printf("%02x ", m->data[i]);
+		if (i == m->len - 1)
+			printf("\n");
 	}
-	vhost_log("\n");
 }
 
 static inline struct mbuf *vhost_new_mbuf(void)
