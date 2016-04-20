@@ -37,7 +37,7 @@ static int copy_desc_to_mbuf(struct virtio_dev *dev, struct virtqueue  *vq,
 		desc_idx = desc->next;
 		desc = &vq->desc[desc->next];
 		desc_addr = gpa_to_va(dev, desc->addr);
-		desc_pkt_len = desc->len - hdrlen;
+		desc_pkt_len = desc->len;
 		vhost_log("desc-next %d len %d hdrlen %d\n", desc_idx, desc->len, hdrlen);
 		if (desc_pkt_len > 0) {
 			mbuf->len = desc_pkt_len;
