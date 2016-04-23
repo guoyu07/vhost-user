@@ -24,6 +24,7 @@ struct virtio_net_hdr {
 
 #define MAX_QUEUE_SIZE	(0xffff)
 #define MAX_QUEUE_PAIR	(1024)
+
 #define VIRTIO_MAX_REGION	(8)
 #define VIRTIO_INVALID_EVENTFD	(-1)
 

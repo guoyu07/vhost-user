@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "vhost.h"
+#include "vhost_ctx.h"
 
 enum {
 	VHOST_USER_NONE = 0,
@@ -27,6 +28,13 @@ enum {
 	VHOST_USER_SEND_RARP = 19,
 	VHOST_USER_MAX
 };
+
+#define VHOST_USER_VERSION_MASK	0x3
+#define VHOST_USER_REPLY_MASK	(0x1 << 2)
+#define VHOST_USER_VERSION	0x1
+
+#define VHOST_USER_VRING_IDX_MASK	(0xff)
+#define VHOST_USER_VRING_NOFD_MASK	(0x100)
 
 struct vhost_vring_state {
 	u32 index;

@@ -15,14 +15,7 @@ extern u64 vhost_supported_features;
 
 void vhost_user_start(const char *path);
 
-struct vhost_ctx {
-	int fd;
-	int (*handler) (int);
-	struct virtio_dev *dev;
-};
-extern int n_vhost_server;
-struct vhost_ctx vhost_servers[16];
-struct vhost_ctx *vhost_get_ctx(int fd);
+struct virtio_dev * vhost_get_first_virtio(void);
 
 static inline void *qva_to_va(struct virtio_dev *dev, u64 qva)
 {

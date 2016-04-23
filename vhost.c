@@ -5,6 +5,7 @@
 #include <sys/select.h>
 
 #include "vhost.h"
+#include "vhost_ctx.h"
 #include "vhost_msg.h"
 #include "uds.h"
 
@@ -78,6 +79,17 @@ struct vhost_ctx *vhost_get_ctx(int fd)
 	n_vhost_server++;
 	return &vhost_servers[n_vhost_server-1];
 }
+struct virtio_dev * vhost_get_first_virtio(void)
+{
+	int i;
+	for (i = 0; i < n_vhost_server; i++) {
+		if ((vhost_servers[i].fd > 0) && vhost_servers[i].dev) {
+			return vhost_servers[i].dev;
+		}
+	}
+	return NULL;
+}
+
 static int uds_accept_handler(int fd)
 {
 	int connfd;
@@ -119,6 +131,7 @@ void vhost_user_start(const char *path)
 	FD_SET(ctx->fd, &rfds);
 	nfds = uctx->fd + 1;
 
+	/* buggy */
 	while (1) {
 		rc = select(nfds, &rfds, NULL, NULL, NULL);
 		if (rc < 0) {
@@ -129,7 +142,7 @@ void vhost_user_start(const char *path)
 			vhost_log("strange\n");
 			continue;
 		}
-//		vhost_log("someone comes\n");
+		vhost_log("someone comes\n");
 		for (i = 0; i < n_vhost_server; i++) {
 			ctx = &vhost_servers[i];
 			if (FD_ISSET(ctx->fd, &rfds)) {

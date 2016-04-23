@@ -9,12 +9,10 @@
 #include <sys/socket.h>
 
 #include "vhost.h"
+#include "vhost_ctx.h"
 #include "vhost_msg.h"
 
 extern int errno;
-
-#define VHOST_USER_VRING_IDX_MASK	(0xff)
-#define VHOST_USER_VRING_NOFD_MASK	(0x100) 
 
 static int vhost_read_msg(int fd, struct vhost_msg *msg)
 {
@@ -75,10 +73,6 @@ static int vhost_reply_msg(int fd, struct vhost_msg *msg)
 {
 	int rc;
 	size_t count;
-
-#define VHOST_USER_VERSION_MASK	0x3
-#define VHOST_USER_REPLY_MASK	(0x1 << 2)
-#define VHOST_USER_VERSION	0x1
 
 	vhost_log("reply\n");
 

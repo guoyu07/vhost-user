@@ -8,8 +8,8 @@
 #define MBUF_DATA_LEN	(2048)
 
 struct mbuf {
-	u32 len;
 	u8 *data;
+	u32 len;
 	struct virtio_net_hdr hdr;
 };
 

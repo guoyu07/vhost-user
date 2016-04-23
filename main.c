@@ -75,16 +75,10 @@ static void *worker_fn(void *data)
 	vhost_log("worker start...\n");
 
 check:
-	sleep(10);
-
 	dev = NULL;
-	for (i = 0; i < n_vhost_server; i++) {
-		if ((vhost_servers[i].fd > 0) && vhost_servers[i].dev) {
-			dev = vhost_servers[i].dev;
-		}
-	}
-	if (!dev) {
-		goto check;
+	while (!dev) {
+		dev = vhost_get_first_virtio();
+		sleep(1);
 	}
 
 	vhost_log("qemu comes...\n");
