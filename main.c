@@ -64,6 +64,7 @@ static int can_read(int fd)
 	return 0;
 }
 
+/* data is tap name */
 static void *worker_fn(void *data)
 {
 	int i;
