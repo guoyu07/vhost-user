@@ -76,7 +76,7 @@ static void *worker_fn(void *data)
 
 check:
 	/* make sure dev is running */
-	sleep(10);
+	sleep(20);
 
 	dev = NULL;
 	while (!dev) {
@@ -86,7 +86,7 @@ check:
 
 	vhost_log("qemu comes...\n");
 
-	fd = tap_open("tap0");
+	fd = tap_open(data);
 	if (fd < 0) {
 		perror("tap");
 		exit(-1);
@@ -121,12 +121,12 @@ check:
 	}
 }
 
-static void vhost_user_worker_start(void)
+static void vhost_user_worker_start(char *tap)
 {
 	pthread_t t;
 	int rc;
 
-	rc = pthread_create(&t, NULL, worker_fn, NULL);
+	rc = pthread_create(&t, NULL, worker_fn, tap);
 	if (rc) {
 		vhost_log("cannot start worker\n");
 		exit(-1);
@@ -140,11 +140,15 @@ static void vhost_user_worker_start(void)
 
 int main(int argc, char **argv)
 {
-	assert(argc == 2);
+	if (argc != 3) {
+		vhost_log("%s: [vhost-user socket path] [tap name]\n",
+				argv[0]);
+		exit(-1);
+	}
 
 	vhost_log("server start...\n");
 
-	vhost_user_worker_start();
+	vhost_user_worker_start(argv[2]);
 
 	vhost_user_start(argv[1]);
 
