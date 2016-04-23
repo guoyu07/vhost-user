@@ -7,33 +7,120 @@
 #include "types.h"
 #include "vhost.h"
 #include "mbuf.h"
+#include "tun.h"
+
+static int sendto_peer(int fd, struct mbuf *m)
+{
+	int rc;
+
+	rc = write(fd, m->data, m->len);
+	if (rc < 0) {
+		perror("write");
+		return 0;
+	}
+	return 1;
+}
+
+static int recvfrom_peer(int fd, struct mbuf **mbuf)
+{
+	int rc;
+	struct mbuf *m;
+
+	m = vhost_new_mbuf();
+	if (!m) {
+		vhost_log("no mbuf\n");
+		exit(-1);
+	}
+	rc = read(fd, m->data, m->len);
+	if (rc < 0) {
+		perror("read");
+		vhost_free_mbuf(m);
+		return 0;
+	}
+	m->len = rc;
+	*mbuf = m;
+	return 1;
+}
+
+static int can_read(int fd)
+{
+	fd_set fs;
+	struct timeval to;
+	int rc;
+
+	FD_ZERO(&fs);
+	FD_SET(fd, &fs);
+
+	to.tv_sec = to.tv_usec = 0;
+
+	rc = select(fd+1, &fs, NULL, NULL, &to);
+	if (rc > 0) {
+		if (FD_ISSET(fd, &fs))
+			return 1;
+		vhost_log("can_read: strange");
+	} else if (rc < 0) {
+		perror("select");
+	}
+	return 0;
+}
 
 static void *worker_fn(void *data)
 {
-	struct mbuf *pkts[1];
 	int i;
 	int np;
+	int fd;
+	struct virtio_dev *dev;
+	struct mbuf *m;
 
 	vhost_log("worker start...\n");
-	sleep(20);
-	vhost_log("ctx %d\n", n_vhost_server);
+
+check:
+	sleep(10);
+
+	dev = NULL;
 	for (i = 0; i < n_vhost_server; i++) {
 		if ((vhost_servers[i].fd > 0) && vhost_servers[i].dev) {
-			vhost_log("ctx %d has dev %p\n", i, vhost_servers[i].dev);
-			virtio_dump_dev(vhost_servers[i].dev);
+			dev = vhost_servers[i].dev;
 		}
 	}
+	if (!dev) {
+		goto check;
+	}
+
+	vhost_log("qemu comes...\n");
+
+	fd = tap_open("tap0");
+	if (fd < 0) {
+		perror("tap");
+		exit(-1);
+	}
+
+	/* data path is ready */
+
+	/* check dev running ? */
+
 	while (1) {
-		for (i = 0; i < n_vhost_server; i++) {
-			if ((vhost_servers[i].fd > 0) && vhost_servers[i].dev) {
-				np = vhost_tx(vhost_servers[i].dev, 1, pkts, 1);
-				if (np > 0) {
-					vhost_dump_mbuf(pkts[0]);
-					vhost_free_mbuf(pkts[0]);
-				}
+		np = vhost_tx(dev, 1, &m, 1);
+		if (np > 0) {
+			np = sendto_peer(fd, m);
+			if (np > 0) {
+				//vhost_dump_mbuf(m);
+				vhost_log("tx to uds\n");
+			} else {
+				vhost_log("failed to send\n");
+			}
+			vhost_free_mbuf(m);
+		}
+		if (can_read(fd)) {
+			np = recvfrom_peer(fd, &m);
+			if (np > 0) {
+				//vhost_dump_mbuf(m);
+				vhost_log("rx from uds\n");
+				vhost_rx(dev, 0, &m, 1);
+				vhost_free_mbuf(m);
 			}
 		}
-		usleep(100);
+		usleep(10);
 	}
 }
 

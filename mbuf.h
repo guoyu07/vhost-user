@@ -40,7 +40,7 @@ static inline struct mbuf *vhost_new_mbuf(void)
 	m = (struct mbuf*)malloc(sizeof(*m));
 	if (!m)
 		return 0;
-	m->len = 0;
+	m->len = MBUF_DATA_LEN;
 	m->data = malloc(MBUF_DATA_LEN);
 	if (!m->data) {
 		free(m);

@@ -6,6 +6,7 @@
 
 #include "vhost.h"
 #include "vhost_msg.h"
+#include "uds.h"
 
 int vhost_debug;
 
@@ -101,21 +102,22 @@ void vhost_user_start(const char *path)
 	int nfds;
 	fd_set rfds;
 	struct vhost_ctx *ctx, *new_ctx;
+	struct uds_ctx *uctx;
 
 	nfds = 0;
 	FD_ZERO(&rfds);
 
-	fd = uds_listen(path);
-	if (fd < 0) {
+	uctx = uds_listen(path);
+	if (!uctx) {
 		perror("unix");
 		exit(-1);
 	}
-	ctx = vhost_get_ctx(fd);
+	ctx = vhost_get_ctx(uctx->fd);
 	assert(ctx);
-	ctx->fd = fd;
+	ctx->fd = uctx->fd;
 	ctx->handler = uds_accept_handler;
 	FD_SET(ctx->fd, &rfds);
-	nfds = fd + 1;
+	nfds = uctx->fd + 1;
 
 	while (1) {
 		rc = select(nfds, &rfds, NULL, NULL, NULL);

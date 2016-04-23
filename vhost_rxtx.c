@@ -1,5 +1,7 @@
 #include <string.h>
 
+#include <sys/eventfd.h>
+
 #include "vhost.h"
 #include "mbuf.h"
 
@@ -7,12 +9,73 @@
 
 #define min(x, y)	(((x) <= (y))?(x):(y))
 
-int vhost_rx(struct virtio_dev *dev, int qidx, struct mbuf *pkts[], int npkts)
+static int copy_mbuf_to_desc(struct virtio_dev *dev, struct virtqueue *vq,
+		struct mbuf *mbuf, u32 desc_idx)
 {
+	struct virtq_desc *desc;
+	void *addr;
+	size_t hdrlen = sizeof(struct virtio_net_hdr);
+
+	desc = &vq->desc[desc_idx];
+	addr = gpa_to_va(dev, desc->addr);
+	memset(addr, 0, hdrlen);
+
+	vhost_log("desc %d len %d\n", desc_idx, desc->len);
+
+	if (desc->len - hdrlen == 0) {
+		//assert desc->flags & NEXT
+		desc_idx = desc->next;
+		desc = &vq->desc[desc_idx];
+		addr = gpa_to_va(dev, desc->addr);
+		vhost_log("desc-next %d len %d mbuflen %d\n",
+				desc_idx, desc->len, mbuf->len);
+		memcpy(addr, mbuf->data, mbuf->len);
+	}
+
 	return 0;
 }
 
-static int copy_desc_to_mbuf(struct virtio_dev *dev, struct virtqueue  *vq,
+int vhost_rx(struct virtio_dev *dev, int qidx, struct mbuf *pkts[], int npkts)
+{
+	int i;
+	int navail;
+	u16 avail_idx;
+	u16 used_idx;
+	u32 desc_idx[MAX_PKT_BURST];
+	struct virtqueue *vq;
+
+	vq = &dev->vq[qidx];
+
+	avail_idx = *(volatile u16 *)&vq->avail->idx;
+	navail = avail_idx - vq->last_used_idx;
+	npkts = min(npkts, navail);
+	npkts = min(npkts, MAX_PKT_BURST);
+
+	if (npkts == 0) {
+		vhost_log("no desc, idx %d last %d\n", vq->avail->idx, vq->last_used_idx);
+		return 0;
+	}
+
+	for (i = 0; i < npkts; i++) {
+		desc_idx[i] = vq->avail->ring[(vq->last_used_idx + i) & (vq->num - 1)];
+	}
+
+	for (i = 0; i < npkts; i++) {
+		copy_mbuf_to_desc(dev, vq, pkts[i], desc_idx[i]);
+		used_idx = (vq->last_used_idx++) & (vq->num - 1);
+		vq->used->ring[used_idx].id = desc_idx[i];
+		vq->used->ring[used_idx].len = pkts[i]->len + sizeof(struct virtio_net_hdr);
+	}
+
+	vq->used->idx += i;
+
+	/* kick the guest */
+	eventfd_write(vq->callfd, 1);
+
+	return i;
+}
+
+static int copy_desc_to_mbuf(struct virtio_dev *dev, struct virtqueue *vq,
 		struct mbuf *mbuf, u32 desc_idx)
 {
 	struct virtio_net_hdr *hdr;
