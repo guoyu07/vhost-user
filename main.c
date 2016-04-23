@@ -75,6 +75,9 @@ static void *worker_fn(void *data)
 	vhost_log("worker start...\n");
 
 check:
+	/* make sure dev is running */
+	sleep(10);
+
 	dev = NULL;
 	while (!dev) {
 		dev = vhost_get_first_virtio();
